@@ -1,0 +1,150 @@
+---
+title: "Bikeshare Wrangling"
+author: "YOUR NAME"
+date: "2/1/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(pins)
+library(reticulate)
+library(lubridate)
+```
+
+
+```{r, install-pandas}
+# If you don't have pandas installed, you will get an error message below.
+# If so, come pack here and uncomment this to install pandas
+# py_install("pandas")
+```
+
+
+```{python}
+import pandas as pd
+from pandas.tseries.holiday import USFederalHolidayCalendar
+import datetime
+```
+
+
+
+# Goal
+
+We want to see if we can predict ridership in a bike share system. We'll pull data about ridership together with data about dates (holidays etc.) and weather.
+
+# Load Data
+
+Download the data from the [Capital BikeShare program](https://www.capitalbikeshare.com/system-data). Note the license agreement.
+
+```{r read-data}
+url <-
+  "https://s3.amazonaws.com/capitalbikeshare-data/2011-capitalbikeshare-tripdata.zip"
+datafile <- pins::pin(url) # , extract = FALSE)
+rides <- readr::read_csv(datafile)
+```
+
+> If the read command encountered an "out of memory" error, what are two things you could do to mitigate it and continue with your analysis?
+
+**your answer here...**
+
+> Have a look at the data types of each column. What are some problems that might arise from using the defaults? What could you do about it?
+
+**your answer here...**
+
+Let's rename the columns to be easier to use in analysis. Use `start_ts`, `end_ts`, and `member_type`; you can drop the other columns.
+
+```{r}
+
+```
+
+
+> How many rides were there by `Member`s in 2011?
+
+```{r}
+
+```
+
+
+
+# Aggregate by hour
+
+We'll need to figure out which hour each ride starts in. See the `lubridate` [cheat sheet](https://rawgit.com/rstudio/cheatsheets/master/lubridate.pdf) and the ["dates and times" chapter](https://r4ds.had.co.nz/dates-and-times.html) of "R for Data Science".
+
+```{r}
+
+```
+
+Now, count the number of rides with each `start_hour`. For now, ignore the distinction between members and non-members.
+
+```{r}
+
+```
+
+> How many rows does `rides_by_hour` have? How many *should* it have? (Don't try to fix this right now.)
+
+
+```{r}
+nrow(rides_by_hour)
+```
+
+**your answer here...**
+
+# Get holidays
+
+Pandas has a nice function for getting holidays. Let's just use that.
+
+```{python}
+# Run this code unchanged.
+holidays = pd.DataFrame({
+  'date': USFederalHolidayCalendar().holidays(datetime.date(2011,1,1),
+  datetime.date(2015,12,31)).date,
+  'is_holiday': True})
+  
+holidays['date'] = pd.to_datetime(holidays['date']) # ugly hack for Reticulate
+holidays.head()
+```
+
+# Join with holiday data
+
+Join the `rides_by_hour` table with the `holidays` table to get a new table that has a column for whether the hour occurred on a holiday.
+
+```{r}
+holidays <- 
+  py$holidays %>% 
+  mutate(
+    # TODO: look at the `date` column before this; I'm not sure this is right.
+    date = lubridate::date(date) 
+  )
+holidays
+```
+
+```{r}
+
+```
+
+
+# Weather Data
+
+Our main goal will be to get the hourly temperature data.
+
+The original wranglers used a weather data source that does not seem to provide downloadable data anymore. But we can use the US government's records. They're in a cumbersome format, which will provide us an excuse to practice some **data cleaning**!
+
+First challenge is where to find the data. Here's how we solved this hard problem:
+
+There's a "Find a Station" tool, but it's confusing how to use the results. https://www.ncdc.noaa.gov/data-access/land-based-station-data/station-metadata has a link to a [station list file](ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-history.txt). Searching that, it looks like the code for Reagan Airport is 724050 13743. So the file is
+https://www.ncei.noaa.gov/data/global-hourly/access/2011/72405013743.csv
+
+Poking around in that site revealed two documents that look very important:
+- https://www.ncei.noaa.gov/data/global-hourly/doc/isd-format-document.pdf
+- https://www.ncei.noaa.gov/data/global-hourly/doc/CSV_HELP.pdf
+
+
+```{r}
+weather_datafile <- 
+  pin("https://www.ncei.noaa.gov/data/global-hourly/access/2011/72405013743.csv")
+```
+
+Turns out readr has some trouble parsing that file. Try it in Python!
+
+... on your own now :)
